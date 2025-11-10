@@ -219,4 +219,4 @@ export const {
   splitTablets,
 } = tabletSlice.actions;
 
-export default tabletSlice.reducer;
+export const tabletReducer = tabletSlice.reducer;
