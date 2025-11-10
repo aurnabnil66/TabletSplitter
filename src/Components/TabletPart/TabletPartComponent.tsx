@@ -4,6 +4,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  runOnJS,
 } from 'react-native-reanimated';
 import { useDispatch } from 'react-redux';
 import { moveTabletPart } from '../../redux/slices/tabletSlice';
@@ -21,29 +22,32 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
   const translateX = useSharedValue(part.x);
   const translateY = useSharedValue(part.y);
 
+  // Create wrapper function
+  const handleMoveTabletPart = (x: number, y: number) => {
+    dispatch(
+      moveTabletPart({
+        tabletId,
+        partId: part.id,
+        x,
+        y,
+      }),
+    );
+  };
+
   // Create pan gesture for moving tablet parts
   const panGesture = Gesture.Pan()
-    .onStart(() => {})
     .onUpdate(event => {
+      'worklet';
       translateX.value = part.x + event.translationX;
       translateY.value = part.y + event.translationY;
     })
     .onEnd(() => {
-      // Direct dispatch - no runOnJS needed
-      dispatch(
-        moveTabletPart({
-          tabletId,
-          partId: part.id,
-          x: translateX.value,
-          y: translateY.value,
-        }),
-      );
-    })
-    .onFinalize(() => {
-      // Optional: handle gesture cancellation
+      'worklet';
+      runOnJS(handleMoveTabletPart)(translateX.value, translateY.value);
     });
 
   const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
     return {
       transform: [
         { translateX: translateX.value },
