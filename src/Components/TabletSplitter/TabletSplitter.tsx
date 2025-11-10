@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
@@ -24,10 +24,11 @@ import SplitLineOverlay from '../SplitLIneOverlay/SplitLineOverlay';
 import styles from './Style';
 import { getRandomColor } from '../../utils/getRandomColor';
 
+// Move AnimatedView creation outside the component
+const AnimatedView = Animated.createAnimatedComponent(View);
+
 const TabletSplitter: React.FC = () => {
   const dispatch = useDispatch();
-
-  const AnimatedView = Animated.createAnimatedComponent(View);
 
   const { tablets, isDrawing, currentTablet, splitLine } = useSelector(
     (state: RootState) => state.tablets,
@@ -38,52 +39,67 @@ const TabletSplitter: React.FC = () => {
   const currentX = useSharedValue(0);
   const currentY = useSharedValue(0);
 
+  // Use ref to track if we're currently drawing to prevent multiple dispatches
+  const isDrawingRef = useRef(false);
+
   // Create wrapper functions that can be called with runOnJS
-  const handleStartDrawing = (x: number, y: number) => {
-    dispatch(
-      startDrawing({
-        x,
-        y,
-        color: getRandomColor(),
-      }),
-    );
-  };
+  const handleStartDrawing = useCallback(
+    (x: number, y: number) => {
+      if (!isDrawingRef.current) {
+        isDrawingRef.current = true;
+        dispatch(
+          startDrawing({
+            x,
+            y,
+            color: getRandomColor(),
+          }),
+        );
+      }
+    },
+    [dispatch],
+  );
 
-  const handleUpdateDrawing = (
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ) => {
-    dispatch(
-      updateDrawing({
-        x,
-        y,
-        width,
-        height,
-      }),
-    );
-  };
+  const handleUpdateDrawing = useCallback(
+    (x: number, y: number, width: number, height: number) => {
+      if (isDrawingRef.current) {
+        dispatch(
+          updateDrawing({
+            x,
+            y,
+            width,
+            height,
+          }),
+        );
+      }
+    },
+    [dispatch],
+  );
 
-  const handleFinishDrawing = () => {
-    dispatch(finishDrawing());
-  };
+  const handleFinishDrawing = useCallback(() => {
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      dispatch(finishDrawing());
+    }
+  }, [dispatch]);
 
-  const handleSetSplitLine = (x: number, y: number) => {
-    dispatch(
-      setSplitLine({
-        x,
-        y,
-        type: 'vertical',
-      }),
-    );
-  };
+  const handleSetSplitLine = useCallback(
+    (x: number, y: number) => {
+      dispatch(
+        setSplitLine({
+          x,
+          y,
+          type: 'vertical',
+        }),
+      );
+    },
+    [dispatch],
+  );
 
-  const handleSplitTablets = () => {
+  const handleSplitTablets = useCallback(() => {
     if (splitLine) {
       dispatch(splitTablets(splitLine));
     }
-  };
+  }, [dispatch, splitLine]);
 
   // Create pan gesture for drawing tablets
   const panGesture = Gesture.Pan()
@@ -104,6 +120,7 @@ const TabletSplitter: React.FC = () => {
       const width = Math.abs(event.x - startX.value);
       const height = Math.abs(event.y - startY.value);
 
+      // Only update if minimum size is met
       if (width >= 40 && height >= 20) {
         const x = Math.min(startX.value, event.x);
         const y = Math.min(startY.value, event.y);
@@ -130,8 +147,8 @@ const TabletSplitter: React.FC = () => {
     }, 100);
   });
 
-  // Combine gestures - pan and tap work simultaneously
-  const composedGestures = Gesture.Simultaneous(panGesture, tapGesture);
+  // Combine gestures - use Exclusive instead of Simultaneous to prevent conflicts
+  const composedGestures = Gesture.Exclusive(panGesture, tapGesture);
 
   const drawingStyle = useAnimatedStyle(() => {
     'worklet';

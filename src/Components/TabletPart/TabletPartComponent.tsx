@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -11,28 +11,32 @@ import { moveTabletPart } from '../../redux/slices/tabletSlice';
 import { ITabletPartProps } from '../../interfaces/ITabletPartProps';
 import styles from './Style';
 
+// Move AnimatedView creation outside the component
+const AnimatedView = Animated.createAnimatedComponent(View);
+
 const TabletPartComponent: React.FC<ITabletPartProps> = ({
   part,
   tabletId,
 }) => {
   const dispatch = useDispatch();
 
-  const AnimatedView = Animated.createAnimatedComponent(View);
-
   const translateX = useSharedValue(part.x);
   const translateY = useSharedValue(part.y);
 
   // Create wrapper function
-  const handleMoveTabletPart = (x: number, y: number) => {
-    dispatch(
-      moveTabletPart({
-        tabletId,
-        partId: part.id,
-        x,
-        y,
-      }),
-    );
-  };
+  const handleMoveTabletPart = useCallback(
+    (x: number, y: number) => {
+      dispatch(
+        moveTabletPart({
+          tabletId,
+          partId: part.id,
+          x,
+          y,
+        }),
+      );
+    },
+    [dispatch, tabletId, part.id],
+  );
 
   // Create pan gesture for moving tablet parts
   const panGesture = Gesture.Pan()
