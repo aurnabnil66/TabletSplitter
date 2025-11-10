@@ -1,4 +1,3 @@
-// src/components/TabletPart.tsx
 import React from 'react';
 import { View } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
@@ -9,18 +8,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useDispatch } from 'react-redux';
 import { moveTabletPart } from '../../redux/slices/tabletSlice';
-import { TabletPart as TabletPartType } from '../../types/tablet';
+import { ITabletPartProps } from '../../interfaces/ITabletPartProps';
 import styles from './Style';
 
-interface TabletPartProps {
-  part: TabletPartType;
-  tabletId: string;
-}
-
-const AnimatedView = Animated.createAnimatedComponent(View);
-
-const TabletPartComponent: React.FC<TabletPartProps> = ({ part, tabletId }) => {
+const TabletPartComponent: React.FC<ITabletPartProps> = ({
+  part,
+  tabletId,
+}) => {
   const dispatch = useDispatch();
+
+  const AnimatedView = Animated.createAnimatedComponent(View);
 
   const translateX = useSharedValue(part.x);
   const translateY = useSharedValue(part.y);

@@ -1,4 +1,3 @@
-// src/components/TabletSplitter.tsx
 import React from 'react';
 import { View } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -23,11 +22,13 @@ import Animated, {
 import TabletPartComponent from '../TabletPart/TabletPartComponent';
 import SplitLineOverlay from '../SplitLIneOverlay/SplitLineOverlay';
 import styles from './Style';
-
-const AnimatedView = Animated.createAnimatedComponent(View);
+import { getRandomColor } from '../../utils/getRandomColor';
 
 const TabletSplitter: React.FC = () => {
   const dispatch = useDispatch();
+
+  const AnimatedView = Animated.createAnimatedComponent(View);
+
   const { tablets, isDrawing, currentTablet, splitLine } = useSelector(
     (state: RootState) => state.tablets,
   );
@@ -36,20 +37,6 @@ const TabletSplitter: React.FC = () => {
   const startY = useSharedValue(0);
   const currentX = useSharedValue(0);
   const currentY = useSharedValue(0);
-
-  const getRandomColor = () => {
-    const colors = [
-      '#FF6B6B',
-      '#4ECDC4',
-      '#45B7D1',
-      '#96CEB4',
-      '#FFEAA7',
-      '#DDA0DD',
-      '#98D8C8',
-      '#F7DC6F',
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
 
   const onPanStart = (event: any) => {
     startX.value = event.nativeEvent.x;

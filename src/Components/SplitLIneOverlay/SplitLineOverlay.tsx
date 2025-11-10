@@ -1,14 +1,10 @@
 // src/components/SplitLineOverlay.tsx
 import React from 'react';
 import { View } from 'react-native';
-import { SplitLine } from '../../types/tablet';
 import styles from './Style';
+import { ISplitLineOverlayProps } from '../../interfaces/ISplitLineOverlayProps';
 
-interface SplitLineOverlayProps {
-  splitLine: SplitLine;
-}
-
-const SplitLineOverlay: React.FC<SplitLineOverlayProps> = ({ splitLine }) => {
+const SplitLineOverlay: React.FC<ISplitLineOverlayProps> = ({ splitLine }) => {
   if (splitLine.type === 'vertical' && splitLine.x !== undefined) {
     return (
       <View
