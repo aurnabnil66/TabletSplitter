@@ -11,7 +11,6 @@ import { moveTabletPart } from '../../redux/slices/tabletSlice';
 import { ITabletPartProps } from '../../interfaces/ITabletPartProps';
 import styles from './Style';
 
-// Move AnimatedView creation outside the component
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 const TabletPartComponent: React.FC<ITabletPartProps> = ({
@@ -20,8 +19,13 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
 }) => {
   const dispatch = useDispatch();
 
+  // Use the part's current position, not just the initial position
   const translateX = useSharedValue(part.x);
   const translateY = useSharedValue(part.y);
+
+  // Track the starting position for the current gesture
+  const startX = useSharedValue(part.x);
+  const startY = useSharedValue(part.y);
 
   // Create wrapper function
   const handleMoveTabletPart = useCallback(
@@ -40,13 +44,28 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
 
   // Create pan gesture for moving tablet parts
   const panGesture = Gesture.Pan()
+    .onStart(() => {
+      'worklet';
+      // Store the current position when gesture starts
+      // console.log('pan started', part.id);
+      // console.log('initial position', part.x, part.y);
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
     .onUpdate(event => {
       'worklet';
-      translateX.value = part.x + event.translationX;
-      translateY.value = part.y + event.translationY;
+      // Update position relative to the start of this gesture
+      translateX.value = startX.value + event.translationX;
+      translateY.value = startY.value + event.translationY;
     })
     .onEnd(() => {
       'worklet';
+      // Save the final position
+      runOnJS(handleMoveTabletPart)(translateX.value, translateY.value);
+    })
+    .onFinalize(() => {
+      'worklet';
+      // Ensure position is saved even if gesture is cancelled
       runOnJS(handleMoveTabletPart)(translateX.value, translateY.value);
     });
 
@@ -71,8 +90,6 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
             backgroundColor: part.color,
             borderRadius:
               Math.min(part.originalWidth, part.originalHeight) * 0.1,
-            left: part.x,
-            top: part.y,
           },
           animatedStyle,
         ]}

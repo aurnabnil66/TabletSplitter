@@ -24,7 +24,6 @@ import SplitLineOverlay from '../SplitLIneOverlay/SplitLineOverlay';
 import styles from './Style';
 import { getRandomColor } from '../../utils/getRandomColor';
 
-// Move AnimatedView creation outside the component
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 const TabletSplitter: React.FC = () => {
@@ -39,10 +38,8 @@ const TabletSplitter: React.FC = () => {
   const currentX = useSharedValue(0);
   const currentY = useSharedValue(0);
 
-  // Use ref to track if we're currently drawing to prevent multiple dispatches
   const isDrawingRef = useRef(false);
 
-  // Create wrapper functions that can be called with runOnJS
   const handleStartDrawing = useCallback(
     (x: number, y: number) => {
       if (!isDrawingRef.current) {
@@ -75,12 +72,15 @@ const TabletSplitter: React.FC = () => {
     [dispatch],
   );
 
-  const handleFinishDrawing = useCallback(() => {
-    if (isDrawingRef.current) {
-      isDrawingRef.current = false;
-      dispatch(finishDrawing());
-    }
-  }, [dispatch]);
+  const handleFinishDrawing = useCallback(
+    (x: number, y: number) => {
+      if (isDrawingRef.current) {
+        isDrawingRef.current = false;
+        dispatch(finishDrawing({ x, y }));
+      }
+    },
+    [dispatch],
+  );
 
   const handleSetSplitLine = useCallback(
     (x: number, y: number) => {
@@ -101,7 +101,6 @@ const TabletSplitter: React.FC = () => {
     }
   }, [dispatch, splitLine]);
 
-  // Create pan gesture for drawing tablets
   const panGesture = Gesture.Pan()
     .onStart(event => {
       'worklet';
@@ -120,7 +119,6 @@ const TabletSplitter: React.FC = () => {
       const width = Math.abs(event.x - startX.value);
       const height = Math.abs(event.y - startY.value);
 
-      // Only update if minimum size is met
       if (width >= 40 && height >= 20) {
         const x = Math.min(startX.value, event.x);
         const y = Math.min(startY.value, event.y);
@@ -129,25 +127,26 @@ const TabletSplitter: React.FC = () => {
     })
     .onEnd(() => {
       'worklet';
-      runOnJS(handleFinishDrawing)();
+      const x = Math.min(startX.value, currentX.value);
+      const y = Math.min(startY.value, currentY.value);
+      runOnJS(handleFinishDrawing)(x, y);
     })
     .onFinalize(() => {
       'worklet';
-      runOnJS(handleFinishDrawing)();
+      const x = Math.min(startX.value, currentX.value);
+      const y = Math.min(startY.value, currentY.value);
+      runOnJS(handleFinishDrawing)(x, y);
     });
 
-  // Create tap gesture for splitting tablets
   const tapGesture = Gesture.Tap().onStart(event => {
     'worklet';
     runOnJS(handleSetSplitLine)(event.x, event.y);
 
-    // Split after showing the line briefly
     setTimeout(() => {
       runOnJS(handleSplitTablets)();
     }, 100);
   });
 
-  // Combine gestures - use Exclusive instead of Simultaneous to prevent conflicts
   const composedGestures = Gesture.Exclusive(panGesture, tapGesture);
 
   const drawingStyle = useAnimatedStyle(() => {
