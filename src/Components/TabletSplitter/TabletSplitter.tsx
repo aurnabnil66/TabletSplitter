@@ -1,5 +1,5 @@
-import React, { useCallback, useRef } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { View, Text } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
 import {
@@ -28,10 +28,12 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 
 const TabletSplitter: React.FC = () => {
   const dispatch = useDispatch();
-
   const { tablets, isDrawing, currentTablet, splitLine } = useSelector(
     (state: RootState) => state.tablets,
   );
+
+  // State to track if instructions should be shown
+  const [showInstructions, setShowInstructions] = useState(true);
 
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -39,6 +41,13 @@ const TabletSplitter: React.FC = () => {
   const currentY = useSharedValue(0);
 
   const isDrawingRef = useRef(false);
+
+  // Hide instructions when first tablet is created
+  React.useEffect(() => {
+    if (tablets.length > 0 && showInstructions) {
+      setShowInstructions(false);
+    }
+  }, [tablets.length, showInstructions]);
 
   const handleStartDrawing = useCallback(
     (x: number, y: number) => {
@@ -170,6 +179,25 @@ const TabletSplitter: React.FC = () => {
       <GestureDetector gesture={composedGestures}>
         <View style={styles.container}>
           <View style={styles.canvas}>
+            {/* Instructions that disappear after first tablet */}
+            {showInstructions && (
+              <View style={styles.instructionsContainer}>
+                <Text style={styles.instructionsTitle}>Tablet Splitter</Text>
+                <Text style={styles.instructionsText}>
+                  • Press and drag to create a tablet
+                </Text>
+                <Text style={styles.instructionsText}>
+                  • Tap to split tablets with a vertical line
+                </Text>
+                <Text style={styles.instructionsText}>
+                  • Drag tablets to move them around
+                </Text>
+                <Text style={styles.instructionsSubtext}>
+                  Create your first tablet to begin...
+                </Text>
+              </View>
+            )}
+
             {tablets.map(tablet =>
               tablet.parts.map(part => (
                 <TabletPartComponent
