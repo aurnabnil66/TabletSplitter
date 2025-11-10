@@ -10,13 +10,12 @@ import {
   splitTablets,
 } from '../../redux/slices/tabletSlice';
 import {
-  PanGestureHandler,
-  TapGestureHandler,
-  State,
+  GestureDetector,
+  Gesture,
+  GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
-  runOnJS,
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import TabletPartComponent from '../TabletPart/TabletPartComponent';
@@ -38,49 +37,55 @@ const TabletSplitter: React.FC = () => {
   const currentX = useSharedValue(0);
   const currentY = useSharedValue(0);
 
-  const onPanStart = (event: any) => {
-    startX.value = event.nativeEvent.x;
-    startY.value = event.nativeEvent.y;
-    currentX.value = event.nativeEvent.x;
-    currentY.value = event.nativeEvent.y;
+  // Create pan gesture for drawing tablets
+  const panGesture = Gesture.Pan()
+    .onStart(event => {
+      startX.value = event.x;
+      startY.value = event.y;
+      currentX.value = event.x;
+      currentY.value = event.y;
 
-    runOnJS(dispatch)(
-      startDrawing({
-        x: event.nativeEvent.x,
-        y: event.nativeEvent.y,
-        color: getRandomColor(),
-      }),
-    );
-  };
-
-  const onPanUpdate = (event: any) => {
-    currentX.value = event.nativeEvent.x;
-    currentY.value = event.nativeEvent.y;
-
-    const width = Math.abs(event.nativeEvent.x - startX.value);
-    const height = Math.abs(event.nativeEvent.y - startY.value);
-
-    if (width >= 40 && height >= 20) {
-      runOnJS(dispatch)(
-        updateDrawing({
-          x: Math.min(startX.value, event.nativeEvent.x),
-          y: Math.min(startY.value, event.nativeEvent.y),
-          width,
-          height,
+      // Direct dispatch since we're not in worklet
+      dispatch(
+        startDrawing({
+          x: event.x,
+          y: event.y,
+          color: getRandomColor(),
         }),
       );
-    }
-  };
+    })
+    .onUpdate(event => {
+      currentX.value = event.x;
+      currentY.value = event.y;
 
-  const onPanEnd = () => {
-    runOnJS(dispatch)(finishDrawing());
-  };
+      const width = Math.abs(event.x - startX.value);
+      const height = Math.abs(event.y - startY.value);
 
-  const onTap = (event: any) => {
-    runOnJS(dispatch)(
+      if (width >= 40 && height >= 20) {
+        // Direct dispatch since we're not in worklet
+        dispatch(
+          updateDrawing({
+            x: Math.min(startX.value, event.x),
+            y: Math.min(startY.value, event.y),
+            width,
+            height,
+          }),
+        );
+      }
+    })
+    .onEnd(() => {
+      dispatch(finishDrawing());
+    })
+    .onFinalize(() => {
+      dispatch(finishDrawing());
+    });
+
+  // Create tap gesture for splitting tablets
+  const tapGesture = Gesture.Tap().onStart(event => {
+    dispatch(
       setSplitLine({
-        x: event.nativeEvent.x,
-        y: event.nativeEvent.y,
+        x: event.x,
+        y: event.y,
         type: 'vertical',
       }),
     );
@@ -88,10 +93,13 @@ const TabletSplitter: React.FC = () => {
     // Split after showing the line briefly
     setTimeout(() => {
       if (splitLine) {
-        runOnJS(dispatch)(splitTablets(splitLine));
+        dispatch(splitTablets(splitLine));
       }
     }, 100);
-  };
+  });
+
+  // Combine gestures - pan and tap work simultaneously
+  const composedGestures = Gesture.Simultaneous(panGesture, tapGesture);
 
   const drawingStyle = useAnimatedStyle(() => {
     const left = Math.min(startX.value, currentX.value);
@@ -109,57 +117,38 @@ const TabletSplitter: React.FC = () => {
   });
 
   return (
-    <TapGestureHandler
-      onHandlerStateChange={event => {
-        if (event.nativeEvent.state === State.ACTIVE) {
-          onTap(event);
-        }
-      }}
-    >
-      <View style={styles.container}>
-        <PanGestureHandler
-          onHandlerStateChange={event => {
-            const state = event.nativeEvent.state;
-            if (state === State.BEGAN) {
-              onPanStart(event);
-            } else if (state === State.ACTIVE) {
-              onPanUpdate(event);
-            } else if (state === State.END || state === State.CANCELLED) {
-              onPanEnd();
-            }
-          }}
-        >
-          <View style={styles.container}>
-            <View style={styles.canvas}>
-              {tablets.map(tablet =>
-                tablet.parts.map(part => (
-                  <TabletPartComponent
-                    key={part.id}
-                    part={part}
-                    tabletId={tablet.id}
-                  />
-                )),
-              )}
-
-              {currentTablet && (
-                <AnimatedView
-                  style={[
-                    styles.drawingTablet,
-                    {
-                      backgroundColor: currentTablet.color,
-                      opacity: 0.7,
-                    },
-                    drawingStyle,
-                  ]}
+    <GestureHandlerRootView style={styles.container}>
+      <GestureDetector gesture={composedGestures}>
+        <View style={styles.container}>
+          <View style={styles.canvas}>
+            {tablets.map(tablet =>
+              tablet.parts.map(part => (
+                <TabletPartComponent
+                  key={part.id}
+                  part={part}
+                  tabletId={tablet.id}
                 />
-              )}
+              )),
+            )}
 
-              {splitLine && <SplitLineOverlay splitLine={splitLine} />}
-            </View>
+            {currentTablet && (
+              <AnimatedView
+                style={[
+                  styles.drawingTablet,
+                  {
+                    backgroundColor: currentTablet.color,
+                    opacity: 0.7,
+                  },
+                  drawingStyle,
+                ]}
+              />
+            )}
+
+            {splitLine && <SplitLineOverlay splitLine={splitLine} />}
           </View>
-        </PanGestureHandler>
-      </View>
-    </TapGestureHandler>
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 };
 

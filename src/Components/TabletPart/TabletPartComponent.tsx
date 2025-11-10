@@ -1,10 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
-import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  runOnJS,
 } from 'react-native-reanimated';
 import { useDispatch } from 'react-redux';
 import { moveTabletPart } from '../../redux/slices/tabletSlice';
@@ -22,26 +21,27 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
   const translateX = useSharedValue(part.x);
   const translateY = useSharedValue(part.y);
 
-  const onPanStart = (event: any, ctx: any) => {
-    ctx.startX = translateX.value;
-    ctx.startY = translateY.value;
-  };
-
-  const onPanUpdate = (event: any, ctx: any) => {
-    translateX.value = ctx.startX + event.nativeEvent.translationX;
-    translateY.value = ctx.startY + event.nativeEvent.translationY;
-  };
-
-  const onPanEnd = (event: any, ctx: any) => {
-    runOnJS(dispatch)(
-      moveTabletPart({
-        tabletId,
-        partId: part.id,
-        x: translateX.value,
-        y: translateY.value,
-      }),
-    );
-  };
+  // Create pan gesture for moving tablet parts
+  const panGesture = Gesture.Pan()
+    .onStart(() => {})
+    .onUpdate(event => {
+      translateX.value = part.x + event.translationX;
+      translateY.value = part.y + event.translationY;
+    })
+    .onEnd(() => {
+      // Direct dispatch - no runOnJS needed
+      dispatch(
+        moveTabletPart({
+          tabletId,
+          partId: part.id,
+          x: translateX.value,
+          y: translateY.value,
+        }),
+      );
+    })
+    .onFinalize(() => {
+      // Optional: handle gesture cancellation
+    });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -53,20 +53,7 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
   });
 
   return (
-    <PanGestureHandler
-      onHandlerStateChange={event => {
-        const state = event.nativeEvent.state;
-        const ctx = { startX: translateX.value, startY: translateY.value };
-
-        if (state === State.BEGAN) {
-          onPanStart(event, ctx);
-        } else if (state === State.ACTIVE) {
-          onPanUpdate(event, ctx);
-        } else if (state === State.END || state === State.CANCELLED) {
-          onPanEnd(event, ctx);
-        }
-      }}
-    >
+    <GestureDetector gesture={panGesture}>
       <AnimatedView
         style={[
           styles.tabletPart,
@@ -82,7 +69,7 @@ const TabletPartComponent: React.FC<ITabletPartProps> = ({
           animatedStyle,
         ]}
       />
-    </PanGestureHandler>
+    </GestureDetector>
   );
 };
 
